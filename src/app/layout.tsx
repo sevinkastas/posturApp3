@@ -1,7 +1,8 @@
 import { Analytics } from '@vercel/analytics/next'
 import type { Metadata, Viewport } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
-import { AppShell } from '@/components/layout/app-shell'
+import { RoleProvider } from '@/lib/role-context'
+import { ThemeProvider, themeInitScript } from '@/lib/theme-context'
 import './globals.css'
 
 const geistSans = Geist({ subsets: ['latin'], variable: '--font-sans' })
@@ -15,7 +16,7 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
-  colorScheme: 'dark light',
+  colorScheme: 'light dark',
   themeColor: [
     { media: '(prefers-color-scheme: light)', color: '#f7fafc' },
     { media: '(prefers-color-scheme: dark)', color: '#0b1220' },
@@ -28,9 +29,20 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="tr" className={`dark ${geistSans.variable} ${geistMono.variable}`}>
+    // Varsayılan tema aydınlık; koyu tema yalnızca ayarlardan seçilirse eklenir.
+    <html
+      lang="tr"
+      suppressHydrationWarning
+      className={`${geistSans.variable} ${geistMono.variable}`}
+    >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+      </head>
       <body className="font-sans antialiased">
-        <AppShell>{children}</AppShell>
+        {/* Tema ve oturum bilgisi tüm sayfa/bileşenler tarafından paylaşılır */}
+        <ThemeProvider>
+          <RoleProvider>{children}</RoleProvider>
+        </ThemeProvider>
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
     </html>

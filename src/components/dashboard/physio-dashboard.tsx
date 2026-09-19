@@ -107,13 +107,13 @@ export function PhysioDashboard() {
               actions={[
                 {
                   label: 'Yeni Danışan',
-                  description: 'Kayıt oluştur',
+                  description: 'Portföye danışan ekle',
                   href: '/clients',
                   icon: Users,
                   accent: true,
                 },
                 {
-                  label: 'İnceleme Kuyruğu',
+                  label: 'AI Onayı',
                   description: '5 analiz bekliyor',
                   href: '/reviews',
                   icon: ClipboardList,

@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Activity, Dumbbell, HeartPulse, ScanLine, Target } from 'lucide-react'
+import { Activity, Dumbbell, HeartPulse, ScanLine, Stethoscope, Target } from 'lucide-react'
 import { ScoreRing } from './score-ring'
 import { StatCard } from './stat-card'
 import { Panel } from './panel'
@@ -96,6 +96,12 @@ export function PatientDashboard() {
                 description: 'İlerlemeyi gör',
                 href: '/profile',
                 icon: Target,
+              },
+              {
+                label: 'Uzman / Canlı Destek',
+                description: 'Fizyoterapist görüşmesi',
+                href: '/support',
+                icon: Stethoscope,
               },
             ]}
           />
