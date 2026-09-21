@@ -3,8 +3,10 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Activity, LogOut, Menu, Search, Settings, Shield, X } from 'lucide-react'
+import { Activity, BookOpen, LogOut, Menu, Search, Settings, Shield, X } from 'lucide-react'
 import { useRole } from '@/lib/role-context'
+import { useGuide } from '@/lib/guide-context'
+import { ScanProgressBar } from '@/components/guide/scan-progress-bar'
 import { cn } from '@/lib/utils'
 import { planName } from '@/lib/session'
 import { NotificationBell } from './notification'
@@ -24,7 +26,9 @@ export function Navbar() {
   const [open, setOpen] = useState(false)
   const pathname = usePathname()
   const title = usePageTitle()
-  const { navigation, meta, user, isPremium, signOut } = useRole()
+  const { navigation, meta, user, isPremium, signOut, role } = useRole()
+  const { openDrawer, progressPercent, activeStep } = useGuide()
+  const showGuideEntry = role === 'patient'
 
   const RoleIcon = meta.icon
   const initials = (user?.name ?? '')
@@ -65,11 +69,30 @@ export function Navbar() {
         </div>
 
         <div className="flex items-center gap-4">
-        {/* Bildirimler Alanı - Tek satırlık tertemiz kullanım */}
-        <NotificationBell />
-        
-        {/* Kullanıcı Profili Avatarı */}
-      </div>
+          {/* Bildirimler Alanı - Tek satırlık tertemiz kullanım */}
+          <NotificationBell />
+          {/* Kullanıcı Profili Avatarı */}
+        </div>
+
+        {showGuideEntry && (
+          <button
+            type="button"
+            onClick={openDrawer}
+            title="Tarama Rehberi"
+            className="hidden items-center gap-1.5 rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground sm:inline-flex"
+          >
+            <BookOpen className="size-4" aria-hidden />
+            Tarama Rehberi
+            <span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-primary">
+              {activeStep}/4
+            </span>
+          </button>
+        )}
+        {showGuideEntry && (
+          <div className="hidden xl:block" aria-label="Tarama ilerlemesi">
+            <ScanProgressBar compact />
+          </div>
+        )}
 
         <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 py-1 pl-1 pr-2">
           <span className="flex size-7 items-center justify-center rounded-md bg-primary/15 text-xs font-semibold text-primary">
@@ -183,6 +206,22 @@ export function Navbar() {
                   </Link>
                 )
               })}
+              {showGuideEntry && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOpen(false)
+                    openDrawer()
+                  }}
+                  className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-sidebar-accent/60 hover:text-foreground"
+                >
+                  <BookOpen className="size-4.5" aria-hidden />
+                  Tarama Rehberi
+                  <span className="ml-auto rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-bold tabular-nums text-primary">
+                    {activeStep}/4 · %{progressPercent}
+                  </span>
+                </button>
+              )}
             </nav>
 
             <div className="border-t border-sidebar-border p-4">

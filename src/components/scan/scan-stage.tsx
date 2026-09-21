@@ -27,7 +27,12 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Camera, CheckCircle2, AlertTriangle, RefreshCw, Play, Scan, UserCheck, X } from "lucide-react";
+import Link from "next/link";
+import { Camera, CheckCircle2, AlertTriangle, RefreshCw, Play, Scan, UserCheck, X, Lock } from "lucide-react";
+import { useGuide } from "@/lib/guide-context";
+import { POSITIONS } from "@/lib/guide-content";
+import { ScanProgressBar } from "@/components/guide/scan-progress-bar";
+import { GuidePanel } from "@/components/guide/guide-panel";
 
 /* ------------------------------------------------------------------ */
 /* Ayarlar                                                             */
@@ -46,13 +51,6 @@ const POSITION_HOLD_MS = 3000; // her pozisyonda sabit durma süresi — GERÇEK
 const LOST_GRACE_MS = 500; // kadraj kısa süreliğine bozulursa sayacı sıfırlama toleransı
 
 type Orientation = "front" | "right" | "back" | "left";
-
-const POSITIONS: { id: Orientation; title: string; instruction: string }[] = [
-  { id: "front", title: "Ön Pozisyon", instruction: "Kameranın karşısında dik durun." },
-  { id: "right", title: "Sağ Yan Pozisyon", instruction: "Sağ yanınız kameraya dönük durun." },
-  { id: "back", title: "Arka Pozisyon", instruction: "Arkanız kameraya dönük durun." },
-  { id: "left", title: "Sol Yan Pozisyon", instruction: "Sol yanınız kameraya dönük durun." },
-];
 
 type Step = "idle" | "calibrating" | "framing" | "scanning" | "completed";
 type CapturedFrame = { id: Orientation; title: string; image: string };
@@ -132,9 +130,20 @@ export function ScanStage({
   const [result, setResult] = useState<PostureResult | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
 
+  // Yönlendirme Asistanı durumu — kılavuz adımları tarama fazıyla senkron ilerler.
+  // guide nesnesi her render'da değiştiği için ref üzerinden erişilir (döngü engeli).
+  const guide = useGuide();
+  const guideRef = useRef(guide);
+  guideRef.current = guide;
+
   const setStepBoth = useCallback((s: Step) => {
     stepRef.current = s;
     setStep(s);
+    // Tarama barı + kılavuz paneli bu faz bilgisiyle canlı güncellenir.
+    if (s === "framing") guideRef.current.setScanPhase("framing");
+    else if (s === "scanning") guideRef.current.setScanPhase("scanning");
+    else if (s === "completed") guideRef.current.setScanPhase("completed");
+    else if (s === "idle") guideRef.current.setScanPhase("idle");
   }, []);
 
   /* ---------------- temizlik ---------------- */
@@ -301,6 +310,7 @@ export function ScanStage({
         posIndexRef.current = 0;
         setPosIndex(0);
         setHoldMs(0);
+        guideRef.current.setScanProgress(0, POSITIONS.length);
         setStepBoth("scanning");
       }
     } else if (phase === "scanning") {
@@ -315,11 +325,14 @@ export function ScanStage({
           if (posIndexRef.current < POSITIONS.length - 1) {
             posIndexRef.current += 1;
             setPosIndex(posIndexRef.current);
+            guideRef.current.setScanProgress(posIndexRef.current, POSITIONS.length);
           } else {
             // 4 yön tamamlandı → analiz sonuçlarını üret (mock) ve bitir.
             const frames = capturedRef.current;
             setCapturedFrames(frames);
             setResult(MOCK_RESULT);
+            guideRef.current.setLastScore(MOCK_RESULT.overallScore);
+            guideRef.current.setScanProgress(POSITIONS.length, POSITIONS.length);
             setStepBoth("completed");
             stopCamera();
             onComplete?.(frames, MOCK_RESULT);
@@ -425,6 +438,13 @@ export function ScanStage({
         </p>
       </div>
 
+      {/* Özel Tarama Barı: o anki adım + mini ilerleme + kamera kilidi */}
+      <ScanProgressBar />
+
+      {/* Kılavuz Paneli: girişten tarama bitene kadar kaybolmayan asistan.
+          Tarama sırasında küçülüp durum çubuğuna dönüşebilir. */}
+      <GuidePanel />
+
       {cameraError && (
         <div className="p-4 bg-destructive/10 text-destructive rounded-lg flex items-center gap-2">
           <AlertTriangle className="h-5 w-5" />
@@ -462,13 +482,31 @@ export function ScanStage({
         {step === "idle" && (
           <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-4 text-white p-6">
             <Camera className="h-16 w-16 text-primary animate-pulse" />
-            <p className="text-center max-w-sm text-sm">
-              Taramayı başlatmak için kamerayı etkinleştirin. Sistem tüm vücudunuzu kadrajda
-              otomatik olarak algılayacaktır.
-            </p>
-            <Button onClick={startCamera} size="lg" className="gap-2">
-              <Play className="h-4 w-4" /> Taramayı Başlat
-            </Button>
+            {guide.canStartScan ? (
+              <>
+                <p className="text-center max-w-sm text-sm">
+                  Taramayı başlatmak için kamerayı etkinleştirin. Sistem tüm vücudunuzu kadrajda
+                  otomatik olarak algılayacaktır.
+                </p>
+                <Button onClick={startCamera} size="lg" className="gap-2">
+                  <Play className="h-4 w-4" /> Taramayı Başlat
+                </Button>
+              </>
+            ) : (
+              <>
+                <span className="flex items-center gap-1.5 rounded-full bg-black/70 px-3 py-1.5 text-xs font-medium text-yellow-300 border border-yellow-400/40">
+                  <Lock className="h-3.5 w-3.5" /> Önce kılavuz adımlarını tamamlayın
+                </span>
+                <p className="text-center max-w-sm text-sm">
+                  Kamerayı açmadan önce yukarıdaki Hazırlık
+                  {!guide.prepDone ? " (Adım 1)" : ""} ve Açı Seçimi
+                  {guide.prepDone ? " (Adım 2)" : ""} adımlarını tamamlayın.
+                </p>
+                <Button onClick={() => guide.setActiveStep(guide.prepDone ? 2 : 1)} size="lg" className="gap-2">
+                  <Play className="h-4 w-4" /> Kılavuza Dön
+                </Button>
+              </>
+            )}
           </div>
         )}
 
@@ -529,6 +567,22 @@ export function ScanStage({
             <Button onClick={resetScan} variant="outline" className="gap-2">
               <RefreshCw className="h-4 w-4" /> Yeniden Tara
             </Button>
+          </div>
+
+          {/* Adım 4 yönlendirmesi: risk skoru + havuzdan atanan program */}
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Link
+              href="/analyses"
+              className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-border px-4 py-2.5 text-sm font-semibold hover:border-primary/40 hover:text-primary"
+            >
+              Risk Skorlarımı Gör
+            </Link>
+            <Link
+              href="/exercises"
+              className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+            >
+              Egzersiz Programıma Git
+            </Link>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">

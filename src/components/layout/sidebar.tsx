@@ -2,8 +2,10 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Activity, LogOut, Settings, Shield, ShieldCheck, Stethoscope, HeartPulse } from 'lucide-react'
+import { Activity, BookOpen, LogOut, Settings, Shield, ShieldCheck, Stethoscope, HeartPulse } from 'lucide-react'
 import { useRole } from '@/lib/role-context'
+import { useGuide } from '@/lib/guide-context'
+import { ScanProgressBar } from '@/components/guide/scan-progress-bar'
 import { cn } from '@/lib/utils'
 import { planName } from '@/lib/session'
 
@@ -20,6 +22,8 @@ function initialsOf(name: string) {
 export function Sidebar() {
   const pathname = usePathname()
   const { navigation, meta, user, isPremium, role, signOut } = useRole()
+  const { openDrawer, activeStep, progressPercent } = useGuide()
+  const showGuideEntry = role === 'patient'
 
   if (!user) return null
 
@@ -116,6 +120,30 @@ export function Sidebar() {
             </Link>
           )
         })}
+        {showGuideEntry && (
+          <>
+            <p className="px-2 pb-2 pt-3 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+              Nasıl Kullanılır?
+            </p>
+            <button
+              type="button"
+              onClick={openDrawer}
+              title="Video anlatımlar ve kısa ipuçları"
+              className="group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-sidebar-accent/60 hover:text-foreground"
+            >
+              <span className="flex size-8 items-center justify-center rounded-md bg-primary/10 text-primary">
+                <BookOpen className="size-4.5" aria-hidden />
+              </span>
+              Tarama Rehberi
+              <span className="ml-auto rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-bold tabular-nums text-primary">
+                {activeStep}/4 · %{progressPercent}
+              </span>
+            </button>
+            <div className="px-0 pt-2">
+              <ScanProgressBar compact />
+            </div>
+          </>
+        )}
       </nav>
 
       <div className="border-t border-sidebar-border p-4">
